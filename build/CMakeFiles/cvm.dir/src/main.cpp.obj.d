@@ -136,6 +136,13 @@ CMakeFiles/cvm.dir/src/main.cpp.obj: \
  C:/mysys2/ucrt64/include/c++/14.2.0/bits/ostream.tcc \
  C:/mysys2/ucrt64/include/c++/14.2.0/istream \
  C:/mysys2/ucrt64/include/c++/14.2.0/bits/istream.tcc \
+ C:/mysys2/ucrt64/include/c++/14.2.0/fstream \
+ C:/mysys2/ucrt64/include/c++/14.2.0/bits/codecvt.h \
+ C:/mysys2/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/basic_file.h \
+ C:/mysys2/ucrt64/include/c++/14.2.0/x86_64-w64-mingw32/bits/c++io.h \
+ C:/mysys2/ucrt64/include/c++/14.2.0/bits/fstream.tcc \
+ C:/mysys2/ucrt64/include/c++/14.2.0/sstream \
+ C:/mysys2/ucrt64/include/c++/14.2.0/bits/sstream.tcc \
  C:\Users\tyagi\Downloads\cvm_project\cvm_project\src\frontend/lexer.h \
  C:/mysys2/ucrt64/include/c++/14.2.0/vector \
  C:/mysys2/ucrt64/include/c++/14.2.0/bits/stl_uninitialized.h \
