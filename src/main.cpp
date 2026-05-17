@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include "frontend/lexer.h"
 #include "frontend/parser.h"
 #include "backend/compiler.h"
@@ -9,8 +10,8 @@
 #include "core/token.h"
 #include "core/ast.h"
 
-// Notice we now pass the Compiler and VM in by reference (&) so they survive
-void run(const std::string &code, Compiler &compiler, VM &vm)
+// The pipeline now accepts boolean flags for the debug modes
+void run(const std::string &code, Compiler &compiler, VM &vm, bool showAst, bool showBytecode)
 {
     try
     {
@@ -20,10 +21,27 @@ void run(const std::string &code, Compiler &compiler, VM &vm)
         Parser parser(tokens);
         std::unique_ptr<BlockNode> ast = parser.parse();
 
-        // Compile the new AST, but keep the old variable ID map!
+        // DELIVERABLE: Print the Abstract Syntax Tree
+        if (showAst)
+        {
+            std::cout << "\n--- Abstract Syntax Tree ---\n";
+            ast->print(0);
+            std::cout << "----------------------------\n";
+        }
+
         std::vector<uint8_t> bytecode = compiler.compile(ast.get());
 
-        // Execute the new bytecode, but keep the old memory state!
+        // DELIVERABLE: Print the Compiled Bytecode (casted to int so it shows numbers, not ASCII chars)
+        if (showBytecode)
+        {
+            std::cout << "\n--- Compiled Bytecode ---\n";
+            for (size_t i = 0; i < bytecode.size(); ++i)
+            {
+                std::cout << static_cast<int>(bytecode[i]) << " ";
+            }
+            std::cout << "\n-------------------------\n";
+        }
+
         vm.execute(bytecode);
     }
     catch (const std::exception &e)
@@ -32,8 +50,7 @@ void run(const std::string &code, Compiler &compiler, VM &vm)
     }
 }
 
-// Mode 1: File Execution
-void runFile(const char *path)
+void runFile(const char *path, bool showAst, bool showBytecode)
 {
     std::ifstream file(path);
     if (!file.is_open())
@@ -44,19 +61,16 @@ void runFile(const char *path)
     std::stringstream buffer;
     buffer << file.rdbuf();
 
-    // Create one-time instances for the file execution
     Compiler compiler;
     VM vm;
-    run(buffer.str(), compiler, vm);
+    run(buffer.str(), compiler, vm, showAst, showBytecode);
 }
 
-// Mode 2: Interactive Terminal
-void runPrompt()
+void runPrompt(bool showAst, bool showBytecode)
 {
     std::cout << "CVM++ Interactive Environment (v1.0)\n";
     std::cout << "Type 'exit' to quit.\n";
 
-    // Create PERSISTENT instances that live as long as the REPL is open
     Compiler persistentCompiler;
     VM persistentVM;
 
@@ -71,29 +85,43 @@ void runPrompt()
         if (line.empty())
             continue;
 
-        // Pass them into the run function
-        run(line, persistentCompiler, persistentVM);
+        run(line, persistentCompiler, persistentVM, showAst, showBytecode);
     }
 }
 
-// THE MISSING PIECE: The actual starting point of the C++ program
+// The Argument Parser
 int main(int argc, char *argv[])
 {
-    // If the user passes a file: ./cvm examples/loop_test.cvm
-    if (argc == 2)
+    bool showAst = false;
+    bool showBytecode = false;
+    std::string filePath = "";
+
+    // Loop through the command line arguments
+    for (int i = 1; i < argc; ++i)
     {
-        runFile(argv[1]);
+        std::string arg = argv[i];
+        if (arg == "--ast")
+        {
+            showAst = true;
+        }
+        else if (arg == "--bytecode")
+        {
+            showBytecode = true;
+        }
+        else
+        {
+            filePath = arg; // If it's not a flag, assume it's the .cvm file
+        }
     }
-    // If the user passes too many arguments
-    else if (argc > 2)
+
+    if (!filePath.empty())
     {
-        std::cout << "Usage: cvm [script.cvm]\n";
-        return 64;
+        runFile(filePath.c_str(), showAst, showBytecode);
     }
-    // If the user just types: ./cvm
     else
     {
-        runPrompt();
+        runPrompt(showAst, showBytecode);
     }
+
     return 0;
 }
