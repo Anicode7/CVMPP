@@ -176,9 +176,16 @@ std::unique_ptr<ASTNode> Parser::ifStatement()
     consume(TokenType::RPAREN, "Expect ')' after if condition.");
 
     std::unique_ptr<ASTNode> thenBranch = statement();
-    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch));
-}
+    std::unique_ptr<ASTNode> elseBranch = nullptr;
 
+    // Check if there is an 'else' block attached
+    if (match({TokenType::ELSE}))
+    {
+        elseBranch = statement();
+    }
+
+    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+}
 std::unique_ptr<ASTNode> Parser::whileStatement()
 {
     consume(TokenType::LPAREN, "Expect '(' after 'while'.");
@@ -224,5 +231,5 @@ Token Parser::consume(TokenType type, const std::string &message)
 {
     if (check(type))
         return advance();
-    throw std::runtime_error(message + " Found: " + peek().lexeme);
+    throw std::runtime_error("Expect expression. Found '" + peek().lexeme + "'");
 }

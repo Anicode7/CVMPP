@@ -127,14 +127,15 @@ struct BlockNode : public ASTNode
         }
     }
 };
-
 struct IfNode : public ASTNode
 {
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<ASTNode> thenBranch;
+    std::unique_ptr<ASTNode> elseBranch; // Ready for our 'else' update!
 
-    IfNode(std::unique_ptr<ASTNode> cond, std::unique_ptr<ASTNode> then)
-        : condition(std::move(cond)), thenBranch(std::move(then)) {}
+    // Constructor defaults elseBranch to nullptr so it doesn't break your current parser
+    IfNode(std::unique_ptr<ASTNode> cond, std::unique_ptr<ASTNode> thenB, std::unique_ptr<ASTNode> elseB = nullptr)
+        : condition(std::move(cond)), thenBranch(std::move(thenB)), elseBranch(std::move(elseB)) {}
 
     void print(int indent) const override
     {
@@ -142,9 +143,13 @@ struct IfNode : public ASTNode
         condition->print(indent + 2);
         std::cout << std::string(indent, ' ') << "Then:\n";
         thenBranch->print(indent + 2);
+        if (elseBranch)
+        {
+            std::cout << std::string(indent, ' ') << "Else:\n";
+            elseBranch->print(indent + 2);
+        }
     }
 };
-
 struct WhileNode : public ASTNode
 {
     std::unique_ptr<ASTNode> condition;

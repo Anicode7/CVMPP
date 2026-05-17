@@ -3,7 +3,7 @@
 
 std::vector<uint8_t> Compiler::compile(ASTNode *root)
 {
-    bytecode.clear();
+    bytecode.clear(); // Ensure we start with a clean slate
     visit(root);
     emit(OpCode::HALT); // Always tell the VM when to stop
     return bytecode;
@@ -19,7 +19,19 @@ void Compiler::emit(OpCode opcode)
     bytecode.push_back(static_cast<uint8_t>(opcode));
 }
 
-uint8_t Compiler::getVarId(const std::string &name)
+void Compiler::emit16(uint16_t value)
+{
+    bytecode.push_back((value >> 8) & 0xFF);
+    bytecode.push_back(value & 0xFF);
+}
+
+void Compiler::patchJump(int offset, uint16_t target)
+{
+    bytecode[offset] = (target >> 8) & 0xFF;
+    bytecode[offset + 1] = target & 0xFF;
+}
+
+uint16_t Compiler::getVarId(const std::string &name)
 {
     if (variables.find(name) == variables.end())
     {
@@ -33,25 +45,23 @@ void Compiler::visit(ASTNode *node)
     if (!node)
         return;
 
-    // 1. If it's a raw number, emit PUSH and then the number itself
+    // 1. Numbers and Booleans
     if (auto *n = dynamic_cast<NumberNode *>(node))
     {
         emit(OpCode::PUSH);
-        emit(static_cast<uint8_t>(n->value));
+        emit16(static_cast<uint16_t>(n->value)); // 16-bit operand
     }
-
     else if (auto *boolNode = dynamic_cast<BooleanNode *>(node))
     {
         emit(OpCode::PUSH);
-        emit(boolNode->value ? 1 : 0); // True is 1, False is 0
+        emit16(boolNode->value ? 1 : 0); // 16-bit operand
     }
-    // --- NEW INPUT TRANSLATION ---
+    // 2. Input
     else if (dynamic_cast<InputNode *>(node))
     {
         emit(OpCode::INPUT);
     }
-    // -----------------------------
-    // 2. If it's math, visit children first (post-order), then emit operation
+    // 3. Binary Operations (Math and Logic)
     else if (auto *b = dynamic_cast<BinaryOpNode *>(node))
     {
         visit(b->left.get());
@@ -81,20 +91,19 @@ void Compiler::visit(ASTNode *node)
             break;
         }
     }
-    // 3. If declaring or assigning a variable, evaluate the right side, then STORE
+    // 4. Variables (Declare, Assign, Load)
     else if (auto *v = dynamic_cast<VarDeclNode *>(node))
     {
         visit(v->initializer.get());
         emit(OpCode::STORE_VAR);
-        emit(getVarId(v->varName));
+        emit16(getVarId(v->varName)); // 16-bit operand
     }
     else if (auto *a = dynamic_cast<AssignNode *>(node))
     {
         visit(a->value.get());
         emit(OpCode::STORE_VAR);
-        emit(getVarId(a->varName));
+        emit16(getVarId(a->varName)); // 16-bit operand
     }
-    // 4. If using a variable, LOAD it
     else if (auto *id = dynamic_cast<IdentifierNode *>(node))
     {
         if (variables.find(id->name) == variables.end())
@@ -102,15 +111,14 @@ void Compiler::visit(ASTNode *node)
             throw std::runtime_error("Undefined variable used: " + id->name);
         }
         emit(OpCode::LOAD_VAR);
-        emit(variables[id->name]);
+        emit16(variables[id->name]); // 16-bit operand
     }
-    // 5. If printing, evaluate the expression, then PRINT
+    // 5. Printing and Blocks
     else if (auto *p = dynamic_cast<PrintNode *>(node))
     {
         visit(p->expression.get());
         emit(OpCode::PRINT);
     }
-    // 6. If it's a block of code, just visit every statement inside it
     else if (auto *blk = dynamic_cast<BlockNode *>(node))
     {
         for (const auto &stmt : blk->statements)
@@ -118,37 +126,55 @@ void Compiler::visit(ASTNode *node)
             visit(stmt.get());
         }
     }
-    // --- CONTROL FLOW ---
+    // 6. Control Flow (If and While)
+    // 6. Control Flow (If and While)
     else if (auto *ifStmt = dynamic_cast<IfNode *>(node))
     {
-        visit(ifStmt->condition.get()); // Compile the condition
+        visit(ifStmt->condition.get()); // Evaluate condition
 
         emit(OpCode::JUMP_IF_FALSE);
-        int jumpTargetIndex = bytecode.size(); // Remember where our dummy byte is
-        emit(0);                               // Emit dummy byte
+        int jumpTargetIndex = bytecode.size();
+        emit16(0xFFFF); // Dummy bytes for the False jump
 
-        visit(ifStmt->thenBranch.get()); // Compile the body
+        visit(ifStmt->thenBranch.get()); // Evaluate 'then' block
 
-        // Backpatch! We cast the size to uint8_t (max 255 bytes for now)
-        bytecode[jumpTargetIndex] = static_cast<uint8_t>(bytecode.size());
+        // If there is an 'else' branch, we need to handle jumping around it
+        if (ifStmt->elseBranch)
+        {
+            // Unconditional jump to skip the 'else' block if the 'then' block executes
+            emit(OpCode::JUMP);
+            int skipElseIndex = bytecode.size();
+            emit16(0xFFFF);
+
+            // Patch the JUMP_IF_FALSE to land right here (the start of the 'else' block)
+            patchJump(jumpTargetIndex, static_cast<uint16_t>(bytecode.size()));
+
+            visit(ifStmt->elseBranch.get()); // Evaluate 'else' block
+
+            // Patch the unconditional JUMP to land right here (the end of the 'if-else' chain)
+            patchJump(skipElseIndex, static_cast<uint16_t>(bytecode.size()));
+        }
+        else
+        {
+            // No 'else', so just patch the JUMP_IF_FALSE to land at the end of 'then'
+            patchJump(jumpTargetIndex, static_cast<uint16_t>(bytecode.size()));
+        }
     }
     else if (auto *whileStmt = dynamic_cast<WhileNode *>(node))
     {
-        int loopStartIndex = bytecode.size(); // Remember where the loop starts!
+        int loopStartIndex = bytecode.size();
 
         visit(whileStmt->condition.get());
 
         emit(OpCode::JUMP_IF_FALSE);
         int exitJumpIndex = bytecode.size();
-        emit(0); // Dummy byte for loop exit
+        emit16(0xFFFF); // 2 dummy bytes
 
         visit(whileStmt->body.get());
 
-        // Jump back up to re-evaluate the condition
         emit(OpCode::JUMP);
-        emit(static_cast<uint8_t>(loopStartIndex));
+        emit16(static_cast<uint16_t>(loopStartIndex)); // 16-bit operand
 
-        // Backpatch the exit jump!
-        bytecode[exitJumpIndex] = static_cast<uint8_t>(bytecode.size());
+        patchJump(exitJumpIndex, static_cast<uint16_t>(bytecode.size()));
     }
 }

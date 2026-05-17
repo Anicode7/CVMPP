@@ -18,6 +18,13 @@ int VM::pop()
     return value;
 }
 
+uint16_t read16(const std::vector<uint8_t> &bytecode, size_t &ip)
+{
+    uint16_t value = (bytecode[ip] << 8) | bytecode[ip + 1];
+    ip += 2;
+    return value;
+}
+
 void VM::execute(const std::vector<uint8_t> &bytecode)
 {
     ip = 0;
@@ -32,8 +39,8 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
         {
         case OpCode::PUSH:
         {
-            // The next byte is the actual number
-            uint8_t value = bytecode[ip++];
+            // Now reads 2 bytes for the number
+            uint16_t value = read16(bytecode, ip);
             push(value);
             break;
         }
@@ -69,15 +76,16 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
         }
         case OpCode::STORE_VAR:
         {
-            // The next byte is the variable's memory ID
-            uint8_t varId = bytecode[ip++];
+            // Now reads a 2-byte memory ID
+            uint16_t varId = read16(bytecode, ip);
             int value = pop();
             memory[varId] = value;
             break;
         }
         case OpCode::LOAD_VAR:
         {
-            uint8_t varId = bytecode[ip++];
+            // Now reads a 2-byte memory ID
+            uint16_t varId = read16(bytecode, ip);
             push(memory[varId]);
             break;
         }
@@ -103,18 +111,18 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
         }
         case OpCode::JUMP_IF_FALSE:
         {
-            uint8_t target = bytecode[ip++]; // Read the destination index
+            uint16_t target = read16(bytecode, ip); // Read 2-byte target
             int condition = pop();
             if (condition == 0)
             {
-                ip = target; // TIME TRAVEL!
+                ip = target;
             }
             break;
         }
         case OpCode::JUMP:
         {
-            uint8_t target = bytecode[ip++];
-            ip = target; // TIME TRAVEL!
+            uint16_t target = read16(bytecode, ip); // Read 2-byte target
+            ip = target;
             break;
         }
         case OpCode::INPUT:

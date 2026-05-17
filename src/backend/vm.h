@@ -11,11 +11,15 @@ public:
 
 private:
     std::vector<int> stack;
-    int ip = 0; // Instruction Pointer
+    size_t ip = 0; // Instruction Pointer
 
     // A simple array to act as RAM for our variables.
     // Since our var IDs are uint8_t, there can only be 256 variables max right now.
-    int memory[256] = {0};
+    // Change this:
+    // int memory[256] = {0};
+
+    // To this:
+    int memory[65536] = {0};
 
     // Fast stack helpers
     void push(int value);
