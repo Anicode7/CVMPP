@@ -23,6 +23,17 @@ struct NumberNode : public ASTNode
         std::cout << std::string(indent, ' ') << "Number: " << value << "\n";
     }
 };
+struct BooleanNode : public ASTNode
+{
+    bool value;
+
+    BooleanNode(bool val) : value(val) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "Boolean: " << (value ? "true" : "false") << "\n";
+    }
+};
 
 struct IdentifierNode : public ASTNode
 {
@@ -107,5 +118,39 @@ struct BlockNode : public ASTNode
         {
             stmt->print(indent + 2);
         }
+    }
+};
+
+struct IfNode : public ASTNode
+{
+    std::unique_ptr<ASTNode> condition;
+    std::unique_ptr<ASTNode> thenBranch;
+
+    IfNode(std::unique_ptr<ASTNode> cond, std::unique_ptr<ASTNode> then)
+        : condition(std::move(cond)), thenBranch(std::move(then)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "If:\n";
+        condition->print(indent + 2);
+        std::cout << std::string(indent, ' ') << "Then:\n";
+        thenBranch->print(indent + 2);
+    }
+};
+
+struct WhileNode : public ASTNode
+{
+    std::unique_ptr<ASTNode> condition;
+    std::unique_ptr<ASTNode> body;
+
+    WhileNode(std::unique_ptr<ASTNode> cond, std::unique_ptr<ASTNode> b)
+        : condition(std::move(cond)), body(std::move(b)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "While:\n";
+        condition->print(indent + 2);
+        std::cout << std::string(indent, ' ') << "Do:\n";
+        body->print(indent + 2);
     }
 };

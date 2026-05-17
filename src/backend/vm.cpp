@@ -87,6 +87,36 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
             std::cout << value << "\n";
             break;
         }
+        case OpCode::EQUAL:
+        {
+            int right = pop();
+            int left = pop();
+            push(left == right ? 1 : 0);
+            break;
+        }
+        case OpCode::LESS:
+        {
+            int right = pop();
+            int left = pop();
+            push(left < right ? 1 : 0);
+            break;
+        }
+        case OpCode::JUMP_IF_FALSE:
+        {
+            uint8_t target = bytecode[ip++]; // Read the destination index
+            int condition = pop();
+            if (condition == 0)
+            {
+                ip = target; // TIME TRAVEL!
+            }
+            break;
+        }
+        case OpCode::JUMP:
+        {
+            uint8_t target = bytecode[ip++];
+            ip = target; // TIME TRAVEL!
+            break;
+        }
         case OpCode::HALT:
         {
             return; // Stop the execution loop gracefully

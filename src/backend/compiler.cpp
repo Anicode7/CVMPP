@@ -38,6 +38,12 @@ void Compiler::visit(ASTNode *node)
         emit(OpCode::PUSH);
         emit(static_cast<uint8_t>(n->value));
     }
+
+    else if (auto *boolNode = dynamic_cast<BooleanNode *>(node))
+    {
+        emit(OpCode::PUSH);
+        emit(boolNode->value ? 1 : 0); // True is 1, False is 0
+    }
     // 2. If it's math, visit children first (post-order), then emit operation
     else if (auto *b = dynamic_cast<BinaryOpNode *>(node))
     {
@@ -57,6 +63,12 @@ void Compiler::visit(ASTNode *node)
             break;
         case TokenType::SLASH:
             emit(OpCode::DIV);
+            break;
+        case TokenType::EQUAL_EQUAL:
+            emit(OpCode::EQUAL);
+            break;
+        case TokenType::LESS:
+            emit(OpCode::LESS);
             break;
         default:
             break;
@@ -98,5 +110,38 @@ void Compiler::visit(ASTNode *node)
         {
             visit(stmt.get());
         }
+    }
+    // --- CONTROL FLOW ---
+    else if (auto *ifStmt = dynamic_cast<IfNode *>(node))
+    {
+        visit(ifStmt->condition.get()); // Compile the condition
+
+        emit(OpCode::JUMP_IF_FALSE);
+        int jumpTargetIndex = bytecode.size(); // Remember where our dummy byte is
+        emit(0);                               // Emit dummy byte
+
+        visit(ifStmt->thenBranch.get()); // Compile the body
+
+        // Backpatch! We cast the size to uint8_t (max 255 bytes for now)
+        bytecode[jumpTargetIndex] = static_cast<uint8_t>(bytecode.size());
+    }
+    else if (auto *whileStmt = dynamic_cast<WhileNode *>(node))
+    {
+        int loopStartIndex = bytecode.size(); // Remember where the loop starts!
+
+        visit(whileStmt->condition.get());
+
+        emit(OpCode::JUMP_IF_FALSE);
+        int exitJumpIndex = bytecode.size();
+        emit(0); // Dummy byte for loop exit
+
+        visit(whileStmt->body.get());
+
+        // Jump back up to re-evaluate the condition
+        emit(OpCode::JUMP);
+        emit(static_cast<uint8_t>(loopStartIndex));
+
+        // Backpatch the exit jump!
+        bytecode[exitJumpIndex] = static_cast<uint8_t>(bytecode.size());
     }
 }

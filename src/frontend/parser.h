@@ -20,6 +20,9 @@ private:
     std::unique_ptr<ASTNode> statement();
     std::unique_ptr<ASTNode> declaration();
     std::unique_ptr<ASTNode> printStatement();
+    std::unique_ptr<ASTNode> ifStatement();
+    std::unique_ptr<ASTNode> whileStatement();
+    std::unique_ptr<ASTNode> block();
     std::unique_ptr<ASTNode> expressionStatement();
 
     // Order of operations for math

@@ -31,6 +31,12 @@ std::unique_ptr<ASTNode> Parser::statement()
 {
     if (match({TokenType::PRINT}))
         return printStatement();
+    if (match({TokenType::IF}))
+        return ifStatement(); // NEW
+    if (match({TokenType::WHILE}))
+        return whileStatement(); // NEW
+    if (match({TokenType::LBRACE}))
+        return block(); // NEW
     return expressionStatement();
 }
 
@@ -122,6 +128,17 @@ std::unique_ptr<ASTNode> Parser::factor()
 
 std::unique_ptr<ASTNode> Parser::primary()
 {
+    // --- NEW BOOLEAN LOGIC ---
+    if (match({TokenType::TRUE_KW}))
+    {
+        return std::make_unique<BooleanNode>(true);
+    }
+    if (match({TokenType::FALSE_KW}))
+    {
+        return std::make_unique<BooleanNode>(false);
+    }
+    // -------------------------
+
     if (match({TokenType::NUMBER}))
     {
         return std::make_unique<NumberNode>(std::stoi(previous().lexeme));
@@ -138,7 +155,36 @@ std::unique_ptr<ASTNode> Parser::primary()
     }
     throw std::runtime_error("Expect expression.");
 }
+std::unique_ptr<ASTNode> Parser::block()
+{
+    auto blockNode = std::make_unique<BlockNode>();
+    while (!check(TokenType::RBRACE) && !isAtEnd())
+    {
+        blockNode->statements.push_back(declaration());
+    }
+    consume(TokenType::RBRACE, "Expect '}' after block.");
+    return blockNode;
+}
 
+std::unique_ptr<ASTNode> Parser::ifStatement()
+{
+    consume(TokenType::LPAREN, "Expect '(' after 'if'.");
+    std::unique_ptr<ASTNode> condition = expression();
+    consume(TokenType::RPAREN, "Expect ')' after if condition.");
+
+    std::unique_ptr<ASTNode> thenBranch = statement();
+    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch));
+}
+
+std::unique_ptr<ASTNode> Parser::whileStatement()
+{
+    consume(TokenType::LPAREN, "Expect '(' after 'while'.");
+    std::unique_ptr<ASTNode> condition = expression();
+    consume(TokenType::RPAREN, "Expect ')' after while condition.");
+
+    std::unique_ptr<ASTNode> body = statement();
+    return std::make_unique<WhileNode>(std::move(condition), std::move(body));
+}
 // --- Helpers ---
 bool Parser::match(std::initializer_list<TokenType> types)
 {
