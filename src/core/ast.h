@@ -44,6 +44,13 @@ struct IdentifierNode : public ASTNode
         std::cout << std::string(indent, ' ') << "Identifier: " << name << "\n";
     }
 };
+struct InputNode : public ASTNode
+{
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "Input\n";
+    }
+};
 
 // --- EXPRESSION NODES (Math & Logic) ---
 struct BinaryOpNode : public ASTNode

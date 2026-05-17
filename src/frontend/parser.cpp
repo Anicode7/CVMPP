@@ -138,7 +138,10 @@ std::unique_ptr<ASTNode> Parser::primary()
         return std::make_unique<BooleanNode>(false);
     }
     // -------------------------
-
+    if (match({TokenType::INPUT}))
+    {
+        return std::make_unique<InputNode>();
+    }
     if (match({TokenType::NUMBER}))
     {
         return std::make_unique<NumberNode>(std::stoi(previous().lexeme));

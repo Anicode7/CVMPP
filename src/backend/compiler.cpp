@@ -3,6 +3,7 @@
 
 std::vector<uint8_t> Compiler::compile(ASTNode *root)
 {
+    bytecode.clear();
     visit(root);
     emit(OpCode::HALT); // Always tell the VM when to stop
     return bytecode;
@@ -44,6 +45,12 @@ void Compiler::visit(ASTNode *node)
         emit(OpCode::PUSH);
         emit(boolNode->value ? 1 : 0); // True is 1, False is 0
     }
+    // --- NEW INPUT TRANSLATION ---
+    else if (dynamic_cast<InputNode *>(node))
+    {
+        emit(OpCode::INPUT);
+    }
+    // -----------------------------
     // 2. If it's math, visit children first (post-order), then emit operation
     else if (auto *b = dynamic_cast<BinaryOpNode *>(node))
     {

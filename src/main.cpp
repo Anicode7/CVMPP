@@ -9,8 +9,8 @@
 #include "core/token.h"
 #include "core/ast.h"
 
-// The core pipeline execution function
-void run(const std::string &code)
+// Notice we now pass the Compiler and VM in by reference (&) so they survive
+void run(const std::string &code, Compiler &compiler, VM &vm)
 {
     try
     {
@@ -20,10 +20,10 @@ void run(const std::string &code)
         Parser parser(tokens);
         std::unique_ptr<BlockNode> ast = parser.parse();
 
-        Compiler compiler;
+        // Compile the new AST, but keep the old variable ID map!
         std::vector<uint8_t> bytecode = compiler.compile(ast.get());
 
-        VM vm;
+        // Execute the new bytecode, but keep the old memory state!
         vm.execute(bytecode);
     }
     catch (const std::exception &e)
@@ -32,7 +32,7 @@ void run(const std::string &code)
     }
 }
 
-// Mode 1: Read and execute a .cvm file
+// Mode 1: File Execution
 void runFile(const char *path)
 {
     std::ifstream file(path);
@@ -41,18 +41,24 @@ void runFile(const char *path)
         std::cerr << "Error: Could not open file '" << path << "'\n";
         return;
     }
-
-    // Read the entire file into a string
     std::stringstream buffer;
     buffer << file.rdbuf();
-    run(buffer.str());
+
+    // Create one-time instances for the file execution
+    Compiler compiler;
+    VM vm;
+    run(buffer.str(), compiler, vm);
 }
 
-// Mode 2: Interactive Terminal (REPL)
+// Mode 2: Interactive Terminal
 void runPrompt()
 {
     std::cout << "CVM++ Interactive Environment (v1.0)\n";
     std::cout << "Type 'exit' to quit.\n";
+
+    // Create PERSISTENT instances that live as long as the REPL is open
+    Compiler persistentCompiler;
+    VM persistentVM;
 
     std::string line;
     while (true)
@@ -65,10 +71,12 @@ void runPrompt()
         if (line.empty())
             continue;
 
-        run(line);
+        // Pass them into the run function
+        run(line, persistentCompiler, persistentVM);
     }
 }
 
+// THE MISSING PIECE: The actual starting point of the C++ program
 int main(int argc, char *argv[])
 {
     // If the user passes a file: ./cvm examples/loop_test.cvm

@@ -117,6 +117,18 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
             ip = target; // TIME TRAVEL!
             break;
         }
+        case OpCode::INPUT:
+        {
+            int userInput;
+            std::cout << "? "; // A simple prompt character for the user
+            std::cin >> userInput;
+
+            // Clear the input buffer so the REPL doesn't glitch out afterwards
+            std::cin.ignore(256, '\n');
+
+            push(userInput);
+            break;
+        }
         case OpCode::HALT:
         {
             return; // Stop the execution loop gracefully

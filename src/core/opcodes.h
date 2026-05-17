@@ -16,5 +16,6 @@ enum class OpCode : uint8_t
     EQUAL,         // : Pop 2, compare (==), push 1 or 0
     LESS,          // : Pop 2, compare (<), push 1 or 0
     JUMP_IF_FALSE, // Pops a boolean. If 0 (false), jumps IP to the target index
-    JUMP
+    JUMP,
+    INPUT
 };
