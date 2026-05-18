@@ -116,14 +116,25 @@ std::unique_ptr<ASTNode> Parser::term()
 
 std::unique_ptr<ASTNode> Parser::factor()
 {
-    std::unique_ptr<ASTNode> expr = primary();
+    std::unique_ptr<ASTNode> expr = unary(); // Changed from primary()
     while (match({TokenType::STAR, TokenType::SLASH}))
     {
         TokenType op = previous().type;
-        std::unique_ptr<ASTNode> right = primary();
+        std::unique_ptr<ASTNode> right = unary(); // Changed from primary()
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
     }
     return expr;
+}
+
+std::unique_ptr<ASTNode> Parser::unary()
+{
+    if (match({TokenType::MINUS}))
+    {
+        TokenType op = previous().type;
+        std::unique_ptr<ASTNode> right = unary();
+        return std::make_unique<UnaryOpNode>(op, std::move(right));
+    }
+    return primary();
 }
 
 std::unique_ptr<ASTNode> Parser::primary()

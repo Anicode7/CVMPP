@@ -32,6 +32,7 @@ private:
     std::unique_ptr<ASTNode> comparison();
     std::unique_ptr<ASTNode> term();
     std::unique_ptr<ASTNode> factor();
+    std::unique_ptr<ASTNode> unary();
     std::unique_ptr<ASTNode> primary();
 
     // --- Helper Functions ---

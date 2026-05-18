@@ -125,6 +125,12 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
             ip = target;
             break;
         }
+        case OpCode::NEGATE:
+        {
+            int value = pop();
+            push(-value);
+            break;
+        }
         case OpCode::INPUT:
         {
             int userInput;

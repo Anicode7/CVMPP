@@ -51,6 +51,20 @@ struct InputNode : public ASTNode
         std::cout << std::string(indent, ' ') << "Input\n";
     }
 };
+struct UnaryOpNode : public ASTNode
+{
+    TokenType op;
+    std::unique_ptr<ASTNode> right;
+
+    UnaryOpNode(TokenType o, std::unique_ptr<ASTNode> r)
+        : op(o), right(std::move(r)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "UnaryOp: " << (int)op << "\n";
+        right->print(indent + 2);
+    }
+};
 
 // --- EXPRESSION NODES (Math & Logic) ---
 struct BinaryOpNode : public ASTNode

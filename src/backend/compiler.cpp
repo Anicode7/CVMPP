@@ -62,6 +62,7 @@ void Compiler::visit(ASTNode *node)
         emit(OpCode::INPUT);
     }
     // 3. Binary Operations (Math and Logic)
+    // 3. Binary Operations (Math and Logic)
     else if (auto *b = dynamic_cast<BinaryOpNode *>(node))
     {
         visit(b->left.get());
@@ -89,6 +90,15 @@ void Compiler::visit(ASTNode *node)
             break;
         default:
             break;
+        }
+    }
+    // --- NEW: Unary Operations (like -5) ---
+    else if (auto *u = dynamic_cast<UnaryOpNode *>(node))
+    {
+        visit(u->right.get()); // Compile the number first
+        if (u->op == TokenType::MINUS)
+        {
+            emit(OpCode::NEGATE); // Then tell the VM to make it negative
         }
     }
     // 4. Variables (Declare, Assign, Load)
