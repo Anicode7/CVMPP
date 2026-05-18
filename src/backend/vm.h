@@ -2,26 +2,27 @@
 #include <vector>
 #include <cstdint>
 #include "../core/opcodes.h"
+#include "../core/value.h" // <-- NEW: Include our Tagged Union
 
 class VM
 {
 public:
-    // Takes the compiled bytecode array and runs it
     void execute(const std::vector<uint8_t> &bytecode);
 
+    // Upgraded memory array to hold dynamic values
+    std::vector<Value> memory;
+
+    VM()
+    {
+        // Initialize memory with integer 0s to prevent undefined behavior
+        memory.resize(65536, Value::createInt(0));
+    }
+
 private:
-    std::vector<int> stack;
-    size_t ip = 0; // Instruction Pointer
+    std::vector<Value> stack; // Upgraded stack
+    size_t ip = 0;
 
-    // A simple array to act as RAM for our variables.
-    // Since our var IDs are uint8_t, there can only be 256 variables max right now.
-    // Change this:
-    // int memory[256] = {0};
-
-    // To this:
-    int memory[65536] = {0};
-
-    // Fast stack helpers
-    void push(int value);
-    int pop();
+    void push(Value value);
+    Value pop();
+    uint16_t read16(const std::vector<uint8_t> &bytecode, size_t &ip);
 };
