@@ -1,0 +1,10 @@
+let count = 7;
+let a = 0;
+let b = 1;
+while (0 < count) {
+  let next = a + b;
+  a = b;
+  b = next;
+  count = count - 1;
+}
+print a;

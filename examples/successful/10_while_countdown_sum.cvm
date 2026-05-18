@@ -1,0 +1,7 @@
+let n = 5;
+let sum = 0;
+while (0 < n) {
+  sum = sum + n;
+  n = n - 1;
+}
+print sum;
