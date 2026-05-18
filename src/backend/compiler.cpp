@@ -1,6 +1,8 @@
 #include "compiler.h"
 #include <stdexcept>
-
+// NEW: Link the compiler to the external symbol table
+Compiler::Compiler(std::unordered_map<std::string, uint16_t> &globals, uint16_t &nextId)
+    : variables(globals), nextVarId(nextId) {}
 std::vector<uint8_t> Compiler::compile(ASTNode *root)
 {
     bytecode.clear(); // Ensure we start with a clean slate

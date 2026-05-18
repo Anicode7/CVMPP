@@ -9,15 +9,18 @@
 class Compiler
 {
 public:
+    // NEW: Constructor takes the global symbol table and ID counter by reference
+    Compiler(std::unordered_map<std::string, uint16_t> &globals, uint16_t &nextId);
+
     // Takes the root of the AST and returns the flat bytecode array
     std::vector<uint8_t> compile(ASTNode *root);
 
 private:
     std::vector<uint8_t> bytecode;
 
-    // CHANGED: Maps variable names to a 16-bit memory slot ID (up to 65,535 variables)
-    std::unordered_map<std::string, uint16_t> variables;
-    uint16_t nextVarId = 0;
+    // CHANGED: These are now references to the persistent state held in main.cpp
+    std::unordered_map<std::string, uint16_t> &variables;
+    uint16_t &nextVarId;
 
     // The recursive DFS traversal function
     void visit(ASTNode *node);
@@ -26,10 +29,10 @@ private:
     void emit(uint8_t byte);
     void emit(OpCode opcode);
 
-    // NEW HELPERS: For 16-bit operands and jump patching
+    // Helpers for 16-bit operands and jump patching
     void emit16(uint16_t value);
     void patchJump(int offset, uint16_t target);
 
-    // CHANGED: Helper to register/lookup variables now returns a 16-bit ID
+    // Helper to register/lookup variables
     uint16_t getVarId(const std::string &name);
 };
