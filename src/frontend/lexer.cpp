@@ -11,7 +11,10 @@ static std::unordered_map<std::string, TokenType> keywords = {
     {"print", TokenType::PRINT},
     {"input", TokenType::INPUT},
     {"true", TokenType::TRUE_KW},
-    {"false", TokenType::FALSE_KW}};
+    {"false", TokenType::FALSE_KW},
+    {"fn", TokenType::FN},           // <-- NEW: Function keyword
+    {"return", TokenType::RETURN_KW} // <-- NEW: Return keyword
+};
 
 Lexer::Lexer(std::string source) : source(source) {}
 
@@ -60,6 +63,9 @@ void Lexer::scanToken()
     case ';':
         addToken(TokenType::SEMICOLON);
         break;
+    case ',':
+        addToken(TokenType::COMMA);
+        break; // <-- NEW: Comma token
 
     // One or two character tokens (like = vs ==)
     case '=':
@@ -119,7 +125,7 @@ void Lexer::number()
 }
 
 // --- Helper Functions ---
-bool Lexer::isAtEnd() { return current >= source.length(); }
+bool Lexer::isAtEnd() { return static_cast<size_t>(current) >= source.length(); }
 char Lexer::advance() { return source[current++]; }
 char Lexer::peek()
 {

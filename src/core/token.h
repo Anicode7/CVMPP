@@ -16,6 +16,7 @@ enum class TokenType
     SEMICOLON, // ;
     ASSIGN,    // =
     LESS,      // <
+    COMMA,     // , <-- NEW: For separating function arguments
 
     // Two-character operators
     EQUAL_EQUAL, // ==
@@ -25,14 +26,16 @@ enum class TokenType
     NUMBER,     // Integers (e.g., 10, 42)
 
     // Keywords (Reserved words)
-    LET,      // let
-    IF,       // if
-    ELSE,     // else
-    WHILE,    // while
-    PRINT,    // print
-    INPUT,    // input
-    TRUE_KW,  // true
-    FALSE_KW, // false
+    LET,       // let
+    IF,        // if
+    ELSE,      // else
+    WHILE,     // while
+    PRINT,     // print
+    INPUT,     // input
+    TRUE_KW,   // true
+    FALSE_KW,  // false
+    FN,        // fn <-- NEW: Function declaration
+    RETURN_KW, // return <-- NEW: Returning from a function
 
     // Special Markers
     END_OF_FILE, // Marks the end of the script

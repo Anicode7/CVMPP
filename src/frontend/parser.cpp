@@ -1,5 +1,6 @@
 #include "parser.h"
 #include <stdexcept>
+#include <iostream>
 
 Parser::Parser(const std::vector<Token> &tokens) : tokens(tokens) {}
 
@@ -16,6 +17,10 @@ std::unique_ptr<BlockNode> Parser::parse()
 // --- Statements ---
 std::unique_ptr<ASTNode> Parser::declaration()
 {
+    if (match({TokenType::FN}))
+    {
+        return functionDeclaration();
+    }
     if (match({TokenType::LET}))
     {
         Token name = consume(TokenType::IDENTIFIER, "Expect variable name.");
@@ -32,11 +37,13 @@ std::unique_ptr<ASTNode> Parser::statement()
     if (match({TokenType::PRINT}))
         return printStatement();
     if (match({TokenType::IF}))
-        return ifStatement(); // NEW
+        return ifStatement();
     if (match({TokenType::WHILE}))
-        return whileStatement(); // NEW
+        return whileStatement();
+    if (match({TokenType::RETURN_KW}))
+        return returnStatement(); // Handles 'return'
     if (match({TokenType::LBRACE}))
-        return block(); // NEW
+        return block();
     return expressionStatement();
 }
 
@@ -51,7 +58,75 @@ std::unique_ptr<ASTNode> Parser::expressionStatement()
 {
     std::unique_ptr<ASTNode> expr = expression();
     consume(TokenType::SEMICOLON, "Expect ';' after expression.");
-    return expr;
+    return std::make_unique<ExprStmtNode>(std::move(expr)); // <-- FIXED
+}
+// --- THE MISSING LINK: Return Statement Implementation ---
+std::unique_ptr<ASTNode> Parser::returnStatement()
+{
+    std::unique_ptr<ASTNode> value = nullptr;
+    if (!check(TokenType::SEMICOLON))
+    {
+        value = expression();
+    }
+    consume(TokenType::SEMICOLON, "Expect ';' after return value.");
+    return std::make_unique<ReturnNode>(std::move(value));
+}
+// ---------------------------------------------------------
+
+std::unique_ptr<BlockNode> Parser::block()
+{
+    auto blockNode = std::make_unique<BlockNode>();
+    while (!check(TokenType::RBRACE) && !isAtEnd())
+    {
+        blockNode->statements.push_back(declaration());
+    }
+    consume(TokenType::RBRACE, "Expect '}' after block.");
+    return blockNode;
+}
+
+std::unique_ptr<ASTNode> Parser::ifStatement()
+{
+    consume(TokenType::LPAREN, "Expect '(' after 'if'.");
+    std::unique_ptr<ASTNode> condition = expression();
+    consume(TokenType::RPAREN, "Expect ')' after if condition.");
+
+    std::unique_ptr<ASTNode> thenBranch = statement();
+    std::unique_ptr<ASTNode> elseBranch = nullptr;
+
+    if (match({TokenType::ELSE}))
+    {
+        elseBranch = statement();
+    }
+    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+}
+
+std::unique_ptr<ASTNode> Parser::whileStatement()
+{
+    consume(TokenType::LPAREN, "Expect '(' after 'while'.");
+    std::unique_ptr<ASTNode> condition = expression();
+    consume(TokenType::RPAREN, "Expect ')' after while condition.");
+
+    std::unique_ptr<ASTNode> body = statement();
+    return std::make_unique<WhileNode>(std::move(condition), std::move(body));
+}
+
+std::unique_ptr<ASTNode> Parser::functionDeclaration()
+{
+    Token name = consume(TokenType::IDENTIFIER, "Expect function name.");
+    consume(TokenType::LPAREN, "Expect '(' after function name.");
+
+    std::vector<std::string> params;
+    if (!check(TokenType::RPAREN))
+    {
+        do
+        {
+            params.push_back(consume(TokenType::IDENTIFIER, "Expect parameter name.").lexeme);
+        } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RPAREN, "Expect ')' after parameters.");
+    consume(TokenType::LBRACE, "Expect '{' before function body.");
+
+    return std::make_unique<FunctionDeclNode>(name.lexeme, params, block());
 }
 
 // --- Expressions ---
@@ -66,9 +141,7 @@ std::unique_ptr<ASTNode> Parser::assignment()
 
     if (match({TokenType::ASSIGN}))
     {
-        std::unique_ptr<ASTNode> value = assignment(); // recursion for a = b = c
-
-        // Ensure the left side is actually a variable we can assign to
+        std::unique_ptr<ASTNode> value = assignment();
         if (IdentifierNode *id = dynamic_cast<IdentifierNode *>(expr.get()))
         {
             return std::make_unique<AssignNode>(id->name, std::move(value));
@@ -116,11 +189,11 @@ std::unique_ptr<ASTNode> Parser::term()
 
 std::unique_ptr<ASTNode> Parser::factor()
 {
-    std::unique_ptr<ASTNode> expr = unary(); // Changed from primary()
+    std::unique_ptr<ASTNode> expr = unary();
     while (match({TokenType::STAR, TokenType::SLASH}))
     {
         TokenType op = previous().type;
-        std::unique_ptr<ASTNode> right = unary(); // Changed from primary()
+        std::unique_ptr<ASTNode> right = unary();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
     }
     return expr;
@@ -139,28 +212,38 @@ std::unique_ptr<ASTNode> Parser::unary()
 
 std::unique_ptr<ASTNode> Parser::primary()
 {
-    // --- NEW BOOLEAN LOGIC ---
     if (match({TokenType::TRUE_KW}))
-    {
         return std::make_unique<BooleanNode>(true);
-    }
     if (match({TokenType::FALSE_KW}))
-    {
         return std::make_unique<BooleanNode>(false);
-    }
-    // -------------------------
     if (match({TokenType::INPUT}))
-    {
         return std::make_unique<InputNode>();
-    }
+
     if (match({TokenType::NUMBER}))
     {
         return std::make_unique<NumberNode>(std::stoi(previous().lexeme));
     }
+
     if (match({TokenType::IDENTIFIER}))
     {
-        return std::make_unique<IdentifierNode>(previous().lexeme);
+        std::string name = previous().lexeme;
+
+        if (match({TokenType::LPAREN}))
+        {
+            std::vector<std::unique_ptr<ASTNode>> args;
+            if (!check(TokenType::RPAREN))
+            {
+                do
+                {
+                    args.push_back(expression());
+                } while (match({TokenType::COMMA}));
+            }
+            consume(TokenType::RPAREN, "Expect ')' after arguments.");
+            return std::make_unique<CallNode>(std::make_unique<IdentifierNode>(name), std::move(args));
+        }
+        return std::make_unique<IdentifierNode>(name);
     }
+
     if (match({TokenType::LPAREN}))
     {
         std::unique_ptr<ASTNode> expr = expression();
@@ -169,43 +252,7 @@ std::unique_ptr<ASTNode> Parser::primary()
     }
     throw std::runtime_error("Expect expression.");
 }
-std::unique_ptr<ASTNode> Parser::block()
-{
-    auto blockNode = std::make_unique<BlockNode>();
-    while (!check(TokenType::RBRACE) && !isAtEnd())
-    {
-        blockNode->statements.push_back(declaration());
-    }
-    consume(TokenType::RBRACE, "Expect '}' after block.");
-    return blockNode;
-}
 
-std::unique_ptr<ASTNode> Parser::ifStatement()
-{
-    consume(TokenType::LPAREN, "Expect '(' after 'if'.");
-    std::unique_ptr<ASTNode> condition = expression();
-    consume(TokenType::RPAREN, "Expect ')' after if condition.");
-
-    std::unique_ptr<ASTNode> thenBranch = statement();
-    std::unique_ptr<ASTNode> elseBranch = nullptr;
-
-    // Check if there is an 'else' block attached
-    if (match({TokenType::ELSE}))
-    {
-        elseBranch = statement();
-    }
-
-    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
-}
-std::unique_ptr<ASTNode> Parser::whileStatement()
-{
-    consume(TokenType::LPAREN, "Expect '(' after 'while'.");
-    std::unique_ptr<ASTNode> condition = expression();
-    consume(TokenType::RPAREN, "Expect ')' after while condition.");
-
-    std::unique_ptr<ASTNode> body = statement();
-    return std::make_unique<WhileNode>(std::move(condition), std::move(body));
-}
 // --- Helpers ---
 bool Parser::match(std::initializer_list<TokenType> types)
 {
@@ -242,5 +289,5 @@ Token Parser::consume(TokenType type, const std::string &message)
 {
     if (check(type))
         return advance();
-    throw std::runtime_error("Expect expression. Found '" + peek().lexeme + "'");
+    throw std::runtime_error(message + " Found: '" + peek().lexeme + "'");
 }

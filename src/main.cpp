@@ -43,7 +43,7 @@ void run(const std::string &code, std::unordered_map<std::string, uint16_t> &glo
             std::cout << "\n-------------------------\n";
         }
 
-        vm.execute(bytecode);
+        vm.execute(bytecode, compiler.getFunctions());
     }
     catch (const std::exception &e)
     {

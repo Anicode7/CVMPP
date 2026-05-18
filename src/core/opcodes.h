@@ -5,9 +5,11 @@
 enum class OpCode : uint8_t
 {
     PUSH, // Push a number onto the stack
-    ADD,  // Pop 2 numbers, Add, Push result
-    SUB,  // Pop 2 numbers, Subtract, Push result
-    MUL,  // Pop 2 numbers, Multiply, Push result
+    PUSH_BOOL,
+    POP,
+    ADD, // Pop 2 numbers, Add, Push result
+    SUB, // Pop 2 numbers, Subtract, Push result
+    MUL, // Pop 2 numbers, Multiply, Push result
     DIV,
     NEGATE,        // Pop 2 numbers, Divide, Push result
     STORE_VAR,     // Pop a number, store it in memory at a specific ID
@@ -19,4 +21,7 @@ enum class OpCode : uint8_t
     JUMP_IF_FALSE, // Pops a boolean. If 0 (false), jumps IP to the target index
     JUMP,
     INPUT,
+    PUSH_FUNC,
+    CALL,
+    RETURN
 };

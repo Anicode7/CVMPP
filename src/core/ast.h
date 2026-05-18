@@ -180,3 +180,71 @@ struct WhileNode : public ASTNode
         body->print(indent + 2);
     }
 };
+struct ExprStmtNode : public ASTNode
+{
+    std::unique_ptr<ASTNode> expr;
+
+    ExprStmtNode(std::unique_ptr<ASTNode> e) : expr(std::move(e)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "ExprStmt\n";
+        expr->print(indent + 2);
+    }
+};
+struct ReturnNode : public ASTNode
+{
+    std::unique_ptr<ASTNode> value;
+
+    ReturnNode(std::unique_ptr<ASTNode> v) : value(std::move(v)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "Return\n";
+    }
+};
+
+struct FunctionDeclNode : public ASTNode
+{
+    std::string name;
+    std::vector<std::string> params;
+    std::unique_ptr<BlockNode> body;
+
+    FunctionDeclNode(const std::string &n, const std::vector<std::string> &p, std::unique_ptr<BlockNode> b)
+        : name(n), params(p), body(std::move(b)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "FunctionDecl: " << name << "(";
+        for (size_t i = 0; i < params.size(); ++i)
+        {
+            std::cout << params[i] << (i < params.size() - 1 ? ", " : "");
+        }
+        std::cout << ")\n";
+
+        // Print the contents of the function body
+        if (body)
+            body->print(indent + 2);
+    }
+};
+
+struct CallNode : public ASTNode
+{
+    std::unique_ptr<ASTNode> callee;
+    std::vector<std::unique_ptr<ASTNode>> arguments;
+
+    CallNode(std::unique_ptr<ASTNode> c, std::vector<std::unique_ptr<ASTNode>> args)
+        : callee(std::move(c)), arguments(std::move(args)) {}
+
+    void print(int indent) const override
+    {
+        std::cout << std::string(indent, ' ') << "Call:\n";
+        callee->print(indent + 2);
+
+        std::cout << std::string(indent + 2, ' ') << "Arguments:\n";
+        for (const auto &arg : arguments)
+        {
+            arg->print(indent + 4);
+        }
+    }
+};

@@ -2,17 +2,12 @@
 #include <iostream>
 #include <stdexcept>
 
-void VM::push(Value value)
-{
-    stack.push_back(value);
-}
+void VM::push(Value value) { stack.push_back(value); }
 
 Value VM::pop()
 {
     if (stack.empty())
-    {
         throw std::runtime_error("Stack underflow!");
-    }
     Value value = stack.back();
     stack.pop_back();
     return value;
@@ -25,19 +20,98 @@ uint16_t VM::read16(const std::vector<uint8_t> &bytecode, size_t &ip)
     return (high << 8) | low;
 }
 
-void VM::execute(const std::vector<uint8_t> &bytecode)
+void VM::execute(const std::vector<uint8_t> &mainBytecode, const std::vector<std::shared_ptr<FunctionObj>> &compilerFuncs)
 {
-    ip = 0;
-    while (ip < bytecode.size())
+    // FIX: Just perfectly sync the VM's memory to the Compiler's master list!
+    functions = compilerFuncs;
+
+    auto mainFunc = std::make_shared<FunctionObj>("main", 0);
+    mainFunc->chunk = mainBytecode;
+    frames.clear();
+    frames.push_back(CallFrame(mainFunc));
+
+    // Keep the Scope Amnesia fix!
+    while (scopes.size() > 1)
     {
-        OpCode instruction = static_cast<OpCode>(bytecode[ip++]);
+        scopes.pop_back();
+    }
+    if (scopes.empty())
+    {
+        scopes.push_back({});
+    }
+    // ... rest of the function stays exactly the same
+    while (!frames.empty())
+    {
+        // ... KEEP EVERYTHING BELOW THIS EXACTLY THE SAME!
+        CallFrame &frame = frames.back();
+
+        if (frame.ip >= frame.function->chunk.size())
+        {
+            frames.pop_back();
+            if (scopes.size() > 1)
+                scopes.pop_back();
+            push(Value::createInt(0));
+            continue;
+        }
+
+        OpCode instruction = static_cast<OpCode>(frame.function->chunk[frame.ip++]);
 
         switch (instruction)
         {
+        case OpCode::PUSH_FUNC:
+        {
+            uint16_t id = read16(frame.function->chunk, frame.ip);
+            push(Value::createFunction(functions[id]));
+            break;
+        }
+        case OpCode::CALL:
+        {
+            uint16_t argCount = read16(frame.function->chunk, frame.ip);
+            Value funcVal = pop();
+            if (!funcVal.isFunc())
+                throw std::runtime_error("Attempted to call a non-function.");
+
+            // --- FIXED: Bug 8 Arity Check ---
+            if (argCount != funcVal.funcObj->arity)
+            {
+                throw std::runtime_error("Expected " + std::to_string(funcVal.funcObj->arity) +
+                                         " arguments but got " + std::to_string(argCount) + ".");
+            }
+            // --------------------------------
+
+            std::unordered_map<uint16_t, Value> newScope;
+            for (int i = argCount - 1; i >= 0; i--)
+            {
+                newScope[i] = pop();
+            }
+
+            scopes.push_back(newScope);
+            frames.push_back(CallFrame(funcVal.funcObj));
+            break;
+        }
+        case OpCode::RETURN:
+        {
+            Value retVal = pop();
+            frames.pop_back();
+            scopes.pop_back();
+            push(retVal);
+            break;
+        }
         case OpCode::PUSH:
         {
-            uint16_t value = read16(bytecode, ip);
-            push(Value::createInt(value)); // Wrap the raw number in our Tagged Union
+            uint16_t value = read16(frame.function->chunk, frame.ip);
+            push(Value::createInt(value));
+            break;
+        }
+        case OpCode::PUSH_BOOL:
+        {
+            uint16_t value = read16(frame.function->chunk, frame.ip);
+            push(Value::createBool(value != 0));
+            break;
+        }
+        case OpCode::POP:
+        {
+            pop(); // Throw the garbage value into the void
             break;
         }
         case OpCode::ADD:
@@ -48,12 +122,8 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
             Value b = pop();
             Value a = pop();
 
-            // Strict Type Checking!
             if (!a.isInt() || !b.isInt())
-            {
                 throw std::runtime_error("Math operations require numbers.");
-            }
-
             int right = b.as.number;
             int left = a.as.number;
 
@@ -81,14 +151,19 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
         }
         case OpCode::STORE_VAR:
         {
-            uint16_t id = read16(bytecode, ip);
-            memory[id] = pop();
+            uint16_t id = read16(frame.function->chunk, frame.ip);
+            scopes.back()[id] = pop();
             break;
         }
         case OpCode::LOAD_VAR:
         {
-            uint16_t id = read16(bytecode, ip);
-            push(memory[id]);
+            uint16_t id = read16(frame.function->chunk, frame.ip);
+            if (scopes.back().count(id))
+                push(scopes.back()[id]);
+            else if (scopes.front().count(id))
+                push(scopes.front()[id]);
+            else
+                throw std::runtime_error("Undefined variable!");
             break;
         }
         case OpCode::PRINT:
@@ -107,21 +182,13 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
             Value b = pop();
             Value a = pop();
             if (a.type != b.type)
-            {
                 push(Value::createBool(false));
-            }
             else if (a.isInt())
-            {
                 push(Value::createBool(a.as.number == b.as.number));
-            }
             else if (a.isBool())
-            {
                 push(Value::createBool(a.as.boolean == b.as.boolean));
-            }
             else
-            {
                 push(Value::createBool(a.stringObj == b.stringObj));
-            }
             break;
         }
         case OpCode::LESS:
@@ -135,10 +202,9 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
         }
         case OpCode::JUMP_IF_FALSE:
         {
-            uint16_t target = read16(bytecode, ip);
+            uint16_t target = read16(frame.function->chunk, frame.ip);
             Value condition = pop();
 
-            // Allow numbers to act as booleans (0 is false, everything else is true)
             bool isTruthy = false;
             if (condition.isBool())
                 isTruthy = condition.as.boolean;
@@ -146,12 +212,12 @@ void VM::execute(const std::vector<uint8_t> &bytecode)
                 isTruthy = (condition.as.number != 0);
 
             if (!isTruthy)
-                ip = target;
+                frame.ip = target;
             break;
         }
         case OpCode::JUMP:
         {
-            ip = read16(bytecode, ip);
+            frame.ip = read16(frame.function->chunk, frame.ip);
             break;
         }
         case OpCode::INPUT:
