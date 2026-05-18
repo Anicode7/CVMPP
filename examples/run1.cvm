@@ -1,0 +1,4 @@
+let x = input ;
+let y = input;
+if(x<y) { print y;}
+else {print x;}
