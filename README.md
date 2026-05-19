@@ -97,8 +97,8 @@ It prints:
 - Bytecode (raw and disassembled)
 - VM output
 
-## Screen Recording / Trace Evidence
-A screen recording cannot be embedded directly from this CLI environment. Instead, below is the exact stage output captured from the visualizer for `10_while_countdown_sum.cvm`.
+## Trace Evidence
+Below is the exact stage output captured from the visualizer for `10_while_countdown_sum.cvm`.
 
 ### Source
 ```text
