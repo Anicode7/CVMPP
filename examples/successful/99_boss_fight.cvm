@@ -1,0 +1,34 @@
+fn getModulo(a, b) {
+    let div = a / b;
+    return a - (div * b);
+}
+
+fn gcd(a, b) {
+    if (b == 0) {
+        return a;
+    }
+    let rem = getModulo(a, b);
+    return gcd(b, rem);
+}
+
+fn collatz(n) {
+    let steps = 0;
+    while (1 < n) {
+        let rem = getModulo(n, 2);
+        if (rem == 0) {
+            n = n / 2;
+        } else {
+            n = (n * 3) + 1;
+        }
+        steps = steps + 1;
+    }
+    return steps;
+}
+
+let startVal = input;
+let steps = collatz(startVal);
+let common = gcd(startVal, steps);
+
+print startVal;
+print steps;
+print common;

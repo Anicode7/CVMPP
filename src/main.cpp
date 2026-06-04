@@ -3,7 +3,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <unordered_map> // NEW
+#include <unordered_map>
+#include <memory>
 #include "frontend/lexer.h"
 #include "frontend/parser.h"
 #include "backend/compiler.h"
@@ -11,8 +12,8 @@
 #include "core/token.h"
 #include "core/ast.h"
 
-// The pipeline now requires the global state to be passed in
-void run(const std::string &code, std::unordered_map<std::string, uint16_t> &globals, uint16_t &nextVarId, VM &vm, bool showAst, bool showBytecode)
+// FIX: Added the functions vector to the run pipeline
+void run(const std::string &code, std::unordered_map<std::string, uint16_t> &globals, uint16_t &nextVarId, std::vector<std::shared_ptr<FunctionObj>> &functions, VM &vm, bool showAst, bool showBytecode)
 {
     try
     {
@@ -29,21 +30,20 @@ void run(const std::string &code, std::unordered_map<std::string, uint16_t> &glo
             std::cout << "----------------------------\n";
         }
 
-        // Spawn a FRESH compiler for this specific execution, linked to our persistent globals
-        Compiler compiler(globals, nextVarId);
+        // FIX: Passing the 3rd argument (functions) to the compiler!
+        Compiler compiler(globals, nextVarId, functions);
         std::vector<uint8_t> bytecode = compiler.compile(ast.get());
 
         if (showBytecode)
         {
             std::cout << "\n--- Compiled Bytecode ---\n";
             for (size_t i = 0; i < bytecode.size(); ++i)
-            {
                 std::cout << static_cast<int>(bytecode[i]) << " ";
-            }
             std::cout << "\n-------------------------\n";
         }
 
-        vm.execute(bytecode, compiler.getFunctions());
+        // FIX: Passing functions to the VM!
+        vm.execute(bytecode, functions);
     }
     catch (const std::exception &e)
     {
@@ -55,19 +55,17 @@ void runFile(const char *path, bool showAst, bool showBytecode)
 {
     std::ifstream file(path);
     if (!file.is_open())
-    {
-        std::cerr << "Error: Could not open file '" << path << "'\n";
         return;
-    }
+
     std::stringstream buffer;
     buffer << file.rdbuf();
 
-    // Isolated state for file execution
     std::unordered_map<std::string, uint16_t> globals;
     uint16_t nextVarId = 0;
+    std::vector<std::shared_ptr<FunctionObj>> functions; // Holds functions for this file
     VM vm;
 
-    run(buffer.str(), globals, nextVarId, vm, showAst, showBytecode);
+    run(buffer.str(), globals, nextVarId, functions, vm, showAst, showBytecode);
 }
 
 void runPrompt(bool showAst, bool showBytecode)
@@ -75,16 +73,15 @@ void runPrompt(bool showAst, bool showBytecode)
     std::cout << "CVM++ Interactive Environment (v1.0)\n";
     std::cout << "Type 'exit' to quit.\n";
 
-    // This is the true Global State that persists between REPL lines
     std::unordered_map<std::string, uint16_t> globals;
     uint16_t nextVarId = 0;
+    std::vector<std::shared_ptr<FunctionObj>> functions; // Persistent REPL functions pool
     VM persistentVM;
 
     std::string line;
     while (true)
     {
         std::cout << "> ";
-        // Using getline ensures spaces don't break the input!
         if (!std::getline(std::cin, line))
             break;
         if (line == "exit")
@@ -92,11 +89,10 @@ void runPrompt(bool showAst, bool showBytecode)
         if (line.empty())
             continue;
 
-        run(line, globals, nextVarId, persistentVM, showAst, showBytecode);
+        run(line, globals, nextVarId, functions, persistentVM, showAst, showBytecode);
     }
 }
 
-// The Argument Parser
 int main(int argc, char *argv[])
 {
     bool showAst = false;

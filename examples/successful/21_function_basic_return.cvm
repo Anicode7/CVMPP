@@ -1,0 +1,6 @@
+fn calculateAdvantage(score, multiplier) {
+    let base = score * multiplier;
+    return base + 50;
+}
+let result = calculateAdvantage(10, 2);
+print result;

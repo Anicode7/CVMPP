@@ -1,0 +1,5 @@
+fn doNothing(a) {
+    let b = a * 10;
+}
+let output = doNothing(5);
+print output;

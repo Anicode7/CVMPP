@@ -1,0 +1,7 @@
+fn expectedPayoff(probWin, payoffWin, payoffLose) {
+    let probLose = 100 - probWin;
+    let expected = (probWin * payoffWin) + (probLose * payoffLose);
+    return expected / 100;
+}
+let finalPayoff = expectedPayoff(60, 50, -10);
+print finalPayoff;

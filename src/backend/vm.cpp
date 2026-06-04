@@ -66,27 +66,20 @@ void VM::execute(const std::vector<uint8_t> &mainBytecode, const std::vector<std
         }
         case OpCode::CALL:
         {
-            uint16_t argCount = read16(frame.function->chunk, frame.ip);
-            Value funcVal = pop();
-            if (!funcVal.isFunc())
-                throw std::runtime_error("Attempted to call a non-function.");
+            int argCount = read16(frame.function->chunk, frame.ip);
+            Value callee = pop();
 
-            // --- FIXED: Bug 8 Arity Check ---
-            if (argCount != funcVal.funcObj->arity)
-            {
-                throw std::runtime_error("Expected " + std::to_string(funcVal.funcObj->arity) +
-                                         " arguments but got " + std::to_string(argCount) + ".");
-            }
-            // --------------------------------
+            if (!callee.isFunc())
+                throw std::runtime_error("Can only call functions.");
+            if (argCount != callee.funcObj->arity)
+                throw std::runtime_error("Expected " + std::to_string(callee.funcObj->arity) + " arguments.");
 
-            std::unordered_map<uint16_t, Value> newScope;
-            for (int i = argCount - 1; i >= 0; i--)
-            {
-                newScope[i] = pop();
-            }
+            // Set up the new Call Stack Frame
+            frames.push_back(CallFrame(callee.funcObj, stack.size() - argCount));
+            scopes.push_back({});
 
-            scopes.push_back(newScope);
-            frames.push_back(CallFrame(funcVal.funcObj));
+            // CRITICAL FIX: There is no popping loop here anymore!
+            // The compiler's injected STORE_VAR instructions will safely pop them.
             break;
         }
         case OpCode::RETURN:

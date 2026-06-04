@@ -1,28 +1,28 @@
 #include "compiler.h"
 #include <stdexcept>
 
-Compiler::Compiler(std::unordered_map<std::string, uint16_t> &globals, uint16_t &nextId)
-    : variables(globals), nextVarId(nextId) {}
+Compiler::Compiler(std::unordered_map<std::string, uint16_t> &globals, uint16_t &nextId, std::vector<std::shared_ptr<FunctionObj>> &funcs)
+    : variables(globals), nextVarId(nextId), functions(funcs) {}
 
 std::vector<uint8_t> Compiler::compile(ASTNode *root, bool isFunction)
 {
     bytecode.clear();
     visit(root);
 
-    // FIX: Safely handle implicit returns
     if (isFunction)
     {
-        emit(OpCode::PUSH); // Push a default return value (0)
+        emit(OpCode::PUSH);
         emit16(0);
-        emit(OpCode::RETURN); // Safely return it
+        emit(OpCode::RETURN);
     }
     else
     {
-        emit(OpCode::HALT); // Main script still halts
+        emit(OpCode::HALT);
     }
 
     return bytecode;
 }
+
 void Compiler::emit(uint8_t byte) { bytecode.push_back(byte); }
 void Compiler::emit(OpCode opcode) { bytecode.push_back(static_cast<uint8_t>(opcode)); }
 void Compiler::emit16(uint16_t value)
@@ -57,7 +57,7 @@ void Compiler::visit(ASTNode *node)
     }
     else if (auto *boolNode = dynamic_cast<BooleanNode *>(node))
     {
-        emit(OpCode::PUSH_BOOL); // <-- FIXED
+        emit(OpCode::PUSH_BOOL);
         emit16(boolNode->value ? 1 : 0);
     }
     else if (dynamic_cast<InputNode *>(node))
@@ -99,22 +99,19 @@ void Compiler::visit(ASTNode *node)
         if (u->op == TokenType::MINUS)
             emit(OpCode::NEGATE);
     }
+    else if (auto *v = dynamic_cast<VarDeclNode *>(node))
+    {
+        visit(v->initializer.get());
+        emit(OpCode::STORE_VAR);
+        emit16(getVarId(v->varName));
+    }
     else if (auto *a = dynamic_cast<AssignNode *>(node))
     {
         visit(a->value.get());
         emit(OpCode::STORE_VAR);
         emit16(getVarId(a->varName));
 
-        // --- THIS IS THE MISSING MAGIC ---
-        // Assignment is an expression, leave a copy of the value on the stack!
         emit(OpCode::LOAD_VAR);
-        emit16(getVarId(a->varName));
-        // ---------------------------------
-    }
-    else if (auto *a = dynamic_cast<AssignNode *>(node))
-    {
-        visit(a->value.get());
-        emit(OpCode::STORE_VAR);
         emit16(getVarId(a->varName));
     }
     else if (auto *id = dynamic_cast<IdentifierNode *>(node))
@@ -134,7 +131,7 @@ void Compiler::visit(ASTNode *node)
     else if (auto *exprStmt = dynamic_cast<ExprStmtNode *>(node))
     {
         visit(exprStmt->expr.get());
-        emit(OpCode::POP); // <-- FIXED: Throws away the unused value so the stack doesn't leak
+        emit(OpCode::POP);
     }
     else if (auto *blk = dynamic_cast<BlockNode *>(node))
     {
@@ -146,7 +143,6 @@ void Compiler::visit(ASTNode *node)
     else if (auto *ifStmt = dynamic_cast<IfNode *>(node))
     {
         visit(ifStmt->condition.get());
-
         emit(OpCode::JUMP_IF_FALSE);
         int jumpTargetIndex = bytecode.size();
         emit16(0xFFFF);
@@ -183,49 +179,59 @@ void Compiler::visit(ASTNode *node)
         emit16(static_cast<uint16_t>(loopStartIndex));
         patchJump(exitJumpIndex, static_cast<uint16_t>(bytecode.size()));
     }
-    // --- NEW: Return Statements ---
     else if (auto *ret = dynamic_cast<ReturnNode *>(node))
     {
         if (ret->value)
-        {
-            visit(ret->value.get()); // Compile the math/variable to return
-        }
+            visit(ret->value.get());
         else
         {
-            // If they just typed `return;`, push a default 0
             emit(OpCode::PUSH);
             emit16(0);
         }
         emit(OpCode::RETURN);
     }
-    // --- NEW: User Defined Functions ---
     else if (auto *f = dynamic_cast<FunctionDeclNode *>(node))
     {
+        uint16_t funcNameId = getVarId(f->name);
         auto funcObj = std::make_shared<FunctionObj>(f->name, f->params.size());
 
-        std::unordered_map<std::string, uint16_t> localVars;
-        uint16_t localId = 0;
+        std::unordered_map<std::string, uint16_t> localVars = variables;
+        uint16_t localId = nextVarId;
+
+        std::vector<uint16_t> paramIds;
         for (const auto &param : f->params)
         {
-            localVars[param] = localId++;
+            uint16_t pid = localId++;
+            localVars[param] = pid;
+            paramIds.push_back(pid);
         }
 
-        Compiler funcCompiler(localVars, localId);
-        // FIX: Pass 'true' so the function chunk ends with a RETURN
-        funcObj->chunk = funcCompiler.compile(f->body.get(), true);
+        Compiler funcCompiler(localVars, localId, functions);
+
+        for (int i = static_cast<int>(paramIds.size()) - 1; i >= 0; --i)
+        {
+            funcCompiler.emit(OpCode::STORE_VAR);
+            funcCompiler.emit16(paramIds[i]);
+        }
+
+        funcCompiler.visit(f->body.get());
+
+        funcCompiler.emit(OpCode::PUSH);
+        funcCompiler.emit16(0);
+        funcCompiler.emit(OpCode::RETURN);
+
+        funcObj->chunk = funcCompiler.bytecode;
 
         functions.push_back(funcObj);
         emit(OpCode::PUSH_FUNC);
         emit16(static_cast<uint16_t>(functions.size() - 1));
         emit(OpCode::STORE_VAR);
-        emit16(getVarId(f->name));
+        emit16(funcNameId);
     }
     else if (auto *call = dynamic_cast<CallNode *>(node))
     {
         for (const auto &arg : call->arguments)
-        {
             visit(arg.get());
-        }
         visit(call->callee.get());
         emit(OpCode::CALL);
         emit16(static_cast<uint16_t>(call->arguments.size()));
