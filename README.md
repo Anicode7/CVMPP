@@ -8,6 +8,14 @@ Lexer -> Parser -> AST -> Bytecode Compiler -> Stack-based VM.
 - Make each compiler phase explicit for learning and debugging.
 - Support iterative extension of syntax and VM instructions.
 
+## Features 
+- **Dynamic Typing:** Supports Integers, Booleans, and First-Class Functions via a Tagged Value system.
+- **Control Flow:** `if/else` branching and `while` loops via bytecode jump instructions.
+- **Functions & Call Stack:** User-defined functions with parameter binding, isolated local scopes, and full support for deep recursion.
+- **Variables:** Global and local variable scoping, robust chained assignments (`a = b = c = 5;`).
+- **Interactive REPL:** Persistent variable and function memory across terminal sessions.
+- **Visualizer Tool:** A built-in disassembler to view token generation and raw bytecode.
+
 ## Quick Start
 ```powershell
 cmake -S . -B build
@@ -97,8 +105,8 @@ It prints:
 - Bytecode (raw and disassembled)
 - VM output
 
-## Screen Recording / Trace Evidence
-A screen recording cannot be embedded directly from this CLI environment. Instead, below is the exact stage output captured from the visualizer for `10_while_countdown_sum.cvm`.
+## Trace Evidence
+Below is the exact stage output captured from the visualizer for `10_while_countdown_sum.cvm`.
 
 ### Source
 ```text
@@ -186,7 +194,6 @@ sum -> 1
 ## Known Limitations
 - Missing operators: `>`, `<=`, `>=`, `!=`.
 - No string literals yet (for example `print("hello");`).
-- Chained assignment (`a = b = 7;`) currently causes a VM stack-underflow runtime error.
 
 ## Repository References
 - Startup guide: `start up.md`
