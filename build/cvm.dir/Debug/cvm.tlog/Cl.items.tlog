@@ -1,0 +1,5 @@
+C:\Users\Anirudha\Desktop\cvm\src\main.cpp;C:\Users\Anirudha\Desktop\cvm\build\cvm.dir\Debug\main.obj
+C:\Users\Anirudha\Desktop\cvm\src\frontend\lexer.cpp;C:\Users\Anirudha\Desktop\cvm\build\cvm.dir\Debug\lexer.obj
+C:\Users\Anirudha\Desktop\cvm\src\frontend\parser.cpp;C:\Users\Anirudha\Desktop\cvm\build\cvm.dir\Debug\parser.obj
+C:\Users\Anirudha\Desktop\cvm\src\backend\compiler.cpp;C:\Users\Anirudha\Desktop\cvm\build\cvm.dir\Debug\compiler.obj
+C:\Users\Anirudha\Desktop\cvm\src\backend\vm.cpp;C:\Users\Anirudha\Desktop\cvm\build\cvm.dir\Debug\vm.obj
